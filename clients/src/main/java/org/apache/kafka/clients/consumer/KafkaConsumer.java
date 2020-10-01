@@ -574,6 +574,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     private final ConsumerCoordinator coordinator;
     private final Deserializer<K> keyDeserializer;
     private final Deserializer<V> valueDeserializer;
+    private final BytesAllocator bytesAllocator;
     private final Fetcher<K, V> fetcher;
     private final ConsumerInterceptors<K, V> interceptors;
 
@@ -723,6 +724,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
                 config.ignore(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG);
                 this.valueDeserializer = valueDeserializer;
             }
+            this.bytesAllocator = config.getConfiguredInstance(ConsumerConfig.VALUE_BYTES_ALLOCATOR_CLASS_CONFIG, BytesAllocator.class);
+            this.bytesAllocator.configure(config.originals(), false);
             OffsetResetStrategy offsetResetStrategy = OffsetResetStrategy.valueOf(config.getString(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG).toUpperCase(Locale.ROOT));
             this.subscriptions = new SubscriptionState(logContext, offsetResetStrategy);
             ClusterResourceListeners clusterResourceListeners = configureClusterResourceListeners(keyDeserializer,
@@ -806,7 +809,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
                     this.retryBackoffMs,
                     this.requestTimeoutMs,
                     isolationLevel,
-                    apiVersions);
+                    apiVersions,
+                    bytesAllocator);
 
             this.kafkaConsumerMetrics = new KafkaConsumerMetrics(metrics, metricGrpPrefix);
 
@@ -844,6 +848,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
         this.coordinator = coordinator;
         this.keyDeserializer = keyDeserializer;
         this.valueDeserializer = valueDeserializer;
+        this.bytesAllocator = new ToArrayByteAllocator();
         this.fetcher = fetcher;
         this.interceptors = Objects.requireNonNull(interceptors);
         this.time = time;

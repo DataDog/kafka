@@ -214,6 +214,11 @@ public class ConsumerConfig extends AbstractConfig {
     public static final String VALUE_DESERIALIZER_CLASS_CONFIG = "value.deserializer";
     public static final String VALUE_DESERIALIZER_CLASS_DOC = "Deserializer class for value that implements the <code>org.apache.kafka.common.serialization.Deserializer</code> interface.";
 
+    /** <code>value.deserializer</code> */
+    public static final String VALUE_BYTES_ALLOCATOR_CLASS_CONFIG = "value.bytes_allocator";
+    public static final String VALUE_BYTES_ALLOCATOR_CLASS_DOC = "Allocator class that implements the <code>org.apache.kafka.clients.consumer.BytesAllocator</code> interface.";
+    public static final String DEFAULT_BYTES_ALLOCATOR_CLASS = "org.apache.kafka.clients.consumer.ToArrayByteAllocator";
+
     /** <code>connections.max.idle.ms</code> */
     public static final String CONNECTIONS_MAX_IDLE_MS_CONFIG = CommonClientConfigs.CONNECTIONS_MAX_IDLE_MS_CONFIG;
 
@@ -230,7 +235,6 @@ public class ConsumerConfig extends AbstractConfig {
     public static final String INTERCEPTOR_CLASSES_DOC = "A list of classes to use as interceptors. "
                                                         + "Implementing the <code>org.apache.kafka.clients.consumer.ConsumerInterceptor</code> interface allows you to intercept (and possibly mutate) records "
                                                         + "received by the consumer. By default, there are no interceptors.";
-
 
     /** <code>exclude.internal.topics</code> */
     public static final String EXCLUDE_INTERNAL_TOPICS_CONFIG = "exclude.internal.topics";
@@ -436,6 +440,11 @@ public class ConsumerConfig extends AbstractConfig {
                                         Type.CLASS,
                                         Importance.HIGH,
                                         VALUE_DESERIALIZER_CLASS_DOC)
+                                .define(VALUE_BYTES_ALLOCATOR_CLASS_CONFIG,
+                                        Type.CLASS,
+                                        DEFAULT_BYTES_ALLOCATOR_CLASS,
+                                        Importance.HIGH,
+                                        VALUE_BYTES_ALLOCATOR_CLASS_DOC)
                                 .define(REQUEST_TIMEOUT_MS_CONFIG,
                                         Type.INT,
                                         30000,

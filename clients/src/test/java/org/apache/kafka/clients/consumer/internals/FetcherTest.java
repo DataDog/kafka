@@ -3155,7 +3155,8 @@ public class FetcherTest {
                 retryBackoffMs,
                 requestTimeoutMs,
                 IsolationLevel.READ_UNCOMMITTED,
-                apiVersions) {
+                apiVersions,
+                null) {
             @Override
             protected FetchSessionHandler sessionHandler(int id) {
                 final FetchSessionHandler handler = super.sessionHandler(id);
@@ -4033,7 +4034,8 @@ public class FetcherTest {
                 retryBackoffMs,
                 requestTimeoutMs,
                 isolationLevel,
-                apiVersions);
+                apiVersions,
+                null);
     }
 
     private void buildDependencies(MetricConfig metricConfig,

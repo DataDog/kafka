@@ -2095,7 +2095,8 @@ public class KafkaConsumerTest {
                 retryBackoffMs,
                 requestTimeoutMs,
                 IsolationLevel.READ_UNCOMMITTED,
-                new ApiVersions());
+                new ApiVersions(),
+                null);
 
         return new KafkaConsumer<>(
                 loggerFactory,
