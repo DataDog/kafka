@@ -59,6 +59,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.regex.Pattern;
 
 import static java.util.Collections.singleton;
@@ -93,6 +94,7 @@ class WorkerSinkTask extends WorkerTask {
     private int commitFailures;
     private boolean pausedForRedelivery;
     private boolean committing;
+    private ArrayBlockingQueue<ConsumerRecords<byte[], byte[]>> pollingBuffer;
 
     public WorkerSinkTask(ConnectorTaskId id,
                           SinkTask task,
@@ -300,6 +302,23 @@ class WorkerSinkTask extends WorkerTask {
             log.debug("{} Initializing and starting task for topics regex {}", this, topicsRegexStr);
         }
 
+        // TODO: Specify capacity with a parameter
+        pollingBuffer = new ArrayBlockingQueue<ConsumerRecords<byte[], byte[]>>(64);
+        // FIXME: This is super hacky
+        new Thread(() -> {
+            while (true) {
+                if (!isStopping()) {
+                    try {
+                        deliverMessages(pollingBuffer.take());
+                    } catch (InterruptedException e) {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+        }).start();
+
         task.initialize(context);
         task.start(taskConfig);
         log.info("{} Sink task finished initialization and start", this);
@@ -317,7 +336,10 @@ class WorkerSinkTask extends WorkerTask {
         }
 
         log.trace("{} Polling consumer with timeout {} ms", this, timeoutMs);
-        ConsumerRecords<byte[], byte[]> msgs = pollConsumer(timeoutMs);
+        pollingBuffer.add(pollConsumer(timeoutMs));
+    }
+
+    private void deliverMessages(ConsumerRecords<byte[], byte[]> msgs) {
         assert messageBatch.isEmpty() || msgs.isEmpty();
         log.trace("{} Polling returned {} messages", this, msgs.count());
 
