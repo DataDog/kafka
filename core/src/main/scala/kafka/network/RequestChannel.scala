@@ -36,6 +36,7 @@ import org.apache.kafka.common.requests._
 import org.apache.kafka.common.utils.Time
 import org.apache.kafka.network.Session
 import org.apache.kafka.server.metrics.KafkaMetricsGroup
+import org.apache.kafka.server.metrics.dd.DatadogMetrics
 
 import java.util
 import scala.collection.mutable
@@ -260,6 +261,11 @@ object RequestChannel extends Logging {
         m.messageConversionsTimeHist.foreach(_.update(Math.round(messageConversionsTimeMs)))
         m.tempMemoryBytesHist.foreach(_.update(temporaryMemoryBytes))
       }
+
+      if (header.apiKey() == ApiKeys.PRODUCE) {
+        DatadogMetrics.getInstance().update(totalTimeMs);
+      }
+
 
       // Records network handler thread usage. This is included towards the request quota for the
       // user/client. Throttling is only performed when request handler thread usage

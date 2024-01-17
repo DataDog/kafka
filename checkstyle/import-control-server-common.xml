@@ -86,6 +86,7 @@
 
         <subpackage name="metrics">
             <allow pkg="com.yammer.metrics" />
+            <allow pkg="com.timgroup.statsd" />
         </subpackage>
 
         <subpackage name="network">
