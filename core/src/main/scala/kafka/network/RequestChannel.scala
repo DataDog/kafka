@@ -23,6 +23,7 @@ import java.util.concurrent._
 import com.fasterxml.jackson.databind.JsonNode
 import com.typesafe.scalalogging.Logger
 import com.yammer.metrics.core.Meter
+import org.apache.kafka.server.metrics.StatsDClient
 import kafka.network
 import kafka.server.{KafkaConfig, RequestLocal}
 import kafka.utils.{Logging, NotNothing, Pool}
@@ -266,6 +267,11 @@ object RequestChannel extends Logging {
         m.messageConversionsTimeHist.foreach(_.update(Math.round(messageConversionsTimeMs)))
         m.tempMemoryBytesHist.foreach(_.update(temporaryMemoryBytes))
       }
+
+      if (header.apiKey() == ApiKeys.PRODUCE) {
+        StatsDClient.getInstance().recordDistributionValue("ddStatsDClient.kafka.produce", totalTimeMs)
+      }
+
 
       // Records network handler thread usage. This is included towards the request quota for the
       // user/client. Throttling is only performed when request handler thread usage
