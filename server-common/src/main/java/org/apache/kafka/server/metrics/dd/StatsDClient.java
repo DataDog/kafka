@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.kafka.server.metrics;
+package org.apache.kafka.server.metrics.dd;
 
 import com.timgroup.statsd.NonBlockingStatsDClient;
 import com.timgroup.statsd.NonBlockingStatsDClientBuilder;

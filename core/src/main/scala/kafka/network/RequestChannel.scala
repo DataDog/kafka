@@ -23,7 +23,6 @@ import java.util.concurrent._
 import com.fasterxml.jackson.databind.JsonNode
 import com.typesafe.scalalogging.Logger
 import com.yammer.metrics.core.Meter
-import org.apache.kafka.server.metrics.StatsDClient
 import kafka.network
 import kafka.server.{KafkaConfig, RequestLocal}
 import kafka.utils.{Logging, NotNothing, Pool}
@@ -32,12 +31,14 @@ import org.apache.kafka.common.config.ConfigResource
 import org.apache.kafka.common.memory.MemoryPool
 import org.apache.kafka.common.message.ApiMessageType.ListenerType
 import org.apache.kafka.common.message.EnvelopeResponseData
+import org.apache.kafka.common.metrics.dd.StatsDClient
 import org.apache.kafka.common.network.{ClientInformation, Send}
 import org.apache.kafka.common.protocol.{ApiKeys, Errors}
 import org.apache.kafka.common.requests._
 import org.apache.kafka.common.security.auth.KafkaPrincipal
 import org.apache.kafka.common.utils.{Sanitizer, Time}
 import org.apache.kafka.server.metrics.KafkaMetricsGroup
+import org.apache.kafka.server.metrics.dd.DatadogMetrics
 
 import java.util
 import scala.annotation.nowarn
@@ -269,7 +270,7 @@ object RequestChannel extends Logging {
       }
 
       if (header.apiKey() == ApiKeys.PRODUCE) {
-        StatsDClient.getInstance().recordDistributionValue("ddStatsDClient.kafka.produce", totalTimeMs)
+        DatadogMetrics.getInstance().update(totalTimeMs);
       }
 
 
