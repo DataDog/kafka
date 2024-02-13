@@ -1,7 +1,21 @@
-package org.apache.kafka.server.metrics.dd;
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import static java.lang.Math.floor;
-import static java.nio.charset.StandardCharsets.UTF_8;
+package org.apache.kafka.server.metrics.dd;
 
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -9,26 +23,29 @@ import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.Collection;
 
+import static java.lang.Math.floor;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 /**
- * A statistical snapshot of a {@link UniformSnapshot}.
- * Copied from https://github.com/dropwizard/metrics
+ * A statistical snapshot of a {@link PlainSnapshot}.
+ * This simpler version of UniformSnapshot allocates and copies less and does not sort by default.
  */
-public class UniformSnapshot extends Snapshot {
+public class PlainSnapshot extends Snapshot {
 
     private final long[] values;
+    private boolean sorted = false;
 
     /**
      * Create a new {@link Snapshot} with the given values.
      *
      * @param values an unordered set of values in the reservoir
      */
-    public UniformSnapshot(Collection<Long> values) {
+    public PlainSnapshot(Collection<Long> values) {
         final Object[] copy = values.toArray();
         this.values = new long[copy.length];
         for (int i = 0; i < copy.length; i++) {
             this.values[i] = (Long) copy[i];
         }
-        Arrays.sort(this.values);
     }
 
     /**
@@ -36,9 +53,10 @@ public class UniformSnapshot extends Snapshot {
      *
      * @param values an unordered set of values in the reservoir that can be used by this class directly
      */
-    public UniformSnapshot(long[] values) {
-        this.values = Arrays.copyOf(values, values.length);
-        Arrays.sort(this.values);
+    public PlainSnapshot(long[] values) {
+        // specialized for UniformReservoir which already
+        // passes a copy of the data. No need to copy again.
+        this.values = values;
     }
 
     /**
@@ -49,6 +67,7 @@ public class UniformSnapshot extends Snapshot {
      */
     @Override
     public double getValue(double quantile) {
+        ensureSorted();
         if (quantile < 0.0 || quantile > 1.0 || Double.isNaN(quantile)) {
             throw new IllegalArgumentException(quantile + " is not in [0..1]");
         }
@@ -73,6 +92,13 @@ public class UniformSnapshot extends Snapshot {
         return lower + (pos - floor(pos)) * (upper - lower);
     }
 
+    private void ensureSorted() {
+        if (!sorted) {
+            Arrays.sort(this.values);
+            sorted = true;
+        }
+    }
+
     /**
      * Returns the number of values in the snapshot.
      *
@@ -86,11 +112,13 @@ public class UniformSnapshot extends Snapshot {
     /**
      * Returns the entire set of values in the snapshot.
      *
+     * The data is not copied
+     *
      * @return the entire set of values
      */
     @Override
     public long[] getValues() {
-        return Arrays.copyOf(values, values.length);
+        return values;
     }
 
     /**
@@ -100,6 +128,7 @@ public class UniformSnapshot extends Snapshot {
      */
     @Override
     public long getMax() {
+        ensureSorted();
         if (values.length == 0) {
             return 0;
         }
@@ -113,6 +142,7 @@ public class UniformSnapshot extends Snapshot {
      */
     @Override
     public long getMin() {
+        ensureSorted();
         if (values.length == 0) {
             return 0;
         }
@@ -126,6 +156,7 @@ public class UniformSnapshot extends Snapshot {
      */
     @Override
     public double getMean() {
+        ensureSorted();
         if (values.length == 0) {
             return 0;
         }
@@ -144,6 +175,7 @@ public class UniformSnapshot extends Snapshot {
      */
     @Override
     public double getStdDev() {
+        ensureSorted();
         // two-pass algorithm for variance, avoids numeric overflow
 
         if (values.length <= 1) {
