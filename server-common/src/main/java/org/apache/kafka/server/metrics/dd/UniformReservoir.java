@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicLongArray;
 public class UniformReservoir implements Reservoir {
     private static final int DEFAULT_SIZE = 1028;
     private final AtomicLong count = new AtomicLong();
+
     private final AtomicLongArray values;
 
     /**
@@ -90,14 +91,23 @@ public class UniformReservoir implements Reservoir {
         count.set(0);
     }
 
+
     @Override
     public Snapshot getSnapshot() {
-        final int s = size();
-        long[] copy = new long[s];
-        for (int i = 0; i < s; i++) {
+        final long c = count.get();
+        // don't call size() to avoid race conditions
+        final int size = (int) Math.min(values.length(), c);
+        double samplingRate;
+        if (c == 0 || c <= size) {
+            samplingRate = 1.0;
+        } else {
+            samplingRate = Math.min((double) size / c, 1.0);
+        }
+        long[] copy = new long[size];
+        for (int i = 0; i < size; i++) {
             copy[i] = values.get(i);
         }
-        return new PlainSnapshot(copy);
+        return new PlainSnapshot(copy, samplingRate);
     }
 }
 

@@ -33,6 +33,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public class PlainSnapshot extends Snapshot {
 
     private final long[] values;
+    private final double samplingRate;
     private boolean sorted = false;
 
     /**
@@ -40,7 +41,8 @@ public class PlainSnapshot extends Snapshot {
      *
      * @param values an unordered set of values in the reservoir
      */
-    public PlainSnapshot(Collection<Long> values) {
+    public PlainSnapshot(Collection<Long> values, double samplingRate) {
+        this.samplingRate = samplingRate;
         final Object[] copy = values.toArray();
         this.values = new long[copy.length];
         for (int i = 0; i < copy.length; i++) {
@@ -53,10 +55,12 @@ public class PlainSnapshot extends Snapshot {
      *
      * @param values an unordered set of values in the reservoir that can be used by this class directly
      */
-    public PlainSnapshot(long[] values) {
+    public PlainSnapshot(long[] values, double samplingRate) {
         // specialized for UniformReservoir which already
         // passes a copy of the data. No need to copy again.
         this.values = values;
+        this.samplingRate = samplingRate;
+
     }
 
     /**
@@ -119,6 +123,11 @@ public class PlainSnapshot extends Snapshot {
     @Override
     public long[] getValues() {
         return values;
+    }
+
+    @Override
+    public double getSamplingRate() {
+        return samplingRate;
     }
 
     /**

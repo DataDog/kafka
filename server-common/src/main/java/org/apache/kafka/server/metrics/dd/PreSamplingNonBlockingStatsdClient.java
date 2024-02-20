@@ -14,22 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.kafka.server.metrics.dd;
 
 import com.timgroup.statsd.NonBlockingStatsDClient;
+import com.timgroup.statsd.NonBlockingStatsDClientBuilder;
+import com.timgroup.statsd.StatsDClientException;
 
-public class StatsDClient {
+public class PreSamplingNonBlockingStatsdClient extends NonBlockingStatsDClient {
+    public PreSamplingNonBlockingStatsdClient(NonBlockingStatsDClientBuilder builder) throws StatsDClientException {
+        super(builder);
+    }
 
-    public static final NonBlockingStatsDClient INSTANCE = new PreSamplingNonBlockingStatsdClientBuilder()
-        .hostname("/var/run/datadog-agent/statsd.sock")
-        .port(0)
-        .enableAggregation(true)
-        .aggregationFlushInterval(10000) // 10s
-        .maxPacketSizeBytes(16384)
-        .build();
-
-    public static NonBlockingStatsDClient getInstance() {
-        return INSTANCE;
+    // Every measurement is kept since we assume sampling was already done
+    // client side.
+    @Override
+    protected boolean isInvalidSample(double sampleRate) {
+        return false;
     }
 }

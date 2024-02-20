@@ -53,10 +53,12 @@ public class StatsdMetricsReporter implements MetricsReporter {
                 Snapshot snapshot = DatadogMetrics.getInstance().getSnapshot();
                 // Could be a race condition here and some measurements could be lost
                 // but at the usual rate of produce requests this is okay
+                double samplingRate = snapshot.getSamplingRate();
+                log.info("Sampling rate {}", samplingRate);
                 DatadogMetrics.getInstance().clear();
                 NonBlockingStatsDClient statsd = StatsDClient.getInstance();
                 for (long v : snapshot.getValues()) {
-                    statsd.recordDistributionValue(METRIC_NAME, v);
+                    statsd.recordDistributionValue(METRIC_NAME, v, samplingRate);
                 }
             }
         };

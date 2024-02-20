@@ -41,6 +41,13 @@ public abstract class Snapshot {
     public abstract long[] getValues();
 
     /**
+     * Returns the sampling rate of values in the reservoir.
+     *
+     * @return the entire set of values
+     */
+    public abstract double getSamplingRate();
+
+    /**
      * Returns the number of values in the snapshot.
      *
      * @return the number of values
