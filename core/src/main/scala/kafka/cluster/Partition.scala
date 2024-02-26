@@ -1078,7 +1078,7 @@ class Partition(val topicPartition: TopicPartition,
    * fully caught up to the (local) leader's offset corresponding to this produce request before we acknowledge the
    * produce request.
    */
-  def checkEnoughReplicasReachOffset(requiredOffset: Long): (Boolean, Errors) = {
+  def checkEnoughReplicasReachOffset(requiredOffset: Long, produceRequiredAcks: Short): (Boolean, Errors) = {
     leaderLogIfLocal match {
       case Some(leaderLog) =>
         // keep the current immutable replica list reference
@@ -1106,6 +1106,8 @@ class Partition(val topicPartition: TopicPartition,
            * in this scenario the request was already appended locally and then added to the purgatory before the ISR was shrunk
            */
           if (minIsr <= curMaximalIsr.size)
+            (true, Errors.NONE)
+          else if (produceRequiredAcks <= curMaximalIsr.size)
             (true, Errors.NONE)
           else
             (true, Errors.NOT_ENOUGH_REPLICAS_AFTER_APPEND)

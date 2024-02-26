@@ -100,7 +100,7 @@ class DelayedProduce(delayMs: Long,
             (false, err)
 
           case Right(partition) =>
-            partition.checkEnoughReplicasReachOffset(status.requiredOffset)
+            partition.checkEnoughReplicasReachOffset(status.requiredOffset, produceMetadata.produceRequiredAcks)
         }
 
         // Case B || C.1 || C.2

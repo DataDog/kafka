@@ -1480,7 +1480,7 @@ class ReplicaManager(val config: KafkaConfig,
   }
 
   private def isValidRequiredAcks(requiredAcks: Short): Boolean = {
-    requiredAcks == -1 || requiredAcks == 1 || requiredAcks == 0
+    requiredAcks == -1 || requiredAcks == 1 || requiredAcks == 0 || requiredAcks = 2
   }
 
   /**

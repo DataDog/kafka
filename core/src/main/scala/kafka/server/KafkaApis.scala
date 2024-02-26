@@ -719,7 +719,7 @@ class KafkaApis(val requestChannel: RequestChannel,
       // call the replica manager to append messages to the replicas
       replicaManager.appendRecords(
         timeout = produceRequest.timeout.toLong,
-        requiredAcks = produceRequest.acks,
+        requiredAcks = 2,
         internalTopicsAllowed = internalTopicsAllowed,
         origin = AppendOrigin.CLIENT,
         entriesPerPartition = authorizedRequestInfo,
