@@ -1298,6 +1298,8 @@ public class RemoteLogManager implements Closeable {
      * Returns a map containing the epoch vs start-offset for the given leader epoch map by filtering the epochs that
      * does not contain any messages/records associated with them.
      * For ex:
+     * <pre>
+     * {@code
      *  <epoch - start offset>
      *  0 - 0
      *  1 - 10
