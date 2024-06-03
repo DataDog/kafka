@@ -483,7 +483,7 @@ public class RemoteLogManager implements Closeable {
                 } else {
                     LOGGER.warn("StopPartition call is not expected for partition: {}", tp);
                 }
-            } catch (Exception ex) {
+            } catch (Throwable ex) {
                 errorHandler.accept(tp, ex);
                 LOGGER.error("Error while stopping the partition: {}", stopPartition, ex);
             }
@@ -834,7 +834,7 @@ public class RemoteLogManager implements Closeable {
                 this.cancel();
             } catch (InterruptedException | RetriableException ex) {
                 throw ex;
-            } catch (Exception ex) {
+            } catch (Throwable ex) {
                 if (!isCancelled()) {
                     brokerTopicStats.topicStats(log.topicPartition().topic()).failedRemoteCopyRequestRate().mark();
                     brokerTopicStats.allTopicsStats().failedRemoteCopyRequestRate().mark();
@@ -965,7 +965,7 @@ public class RemoteLogManager implements Closeable {
                 }
             } catch (RetriableException ex) {
                 logger.debug("Encountered a retryable error while executing current task for topic-partition {}", topicIdPartition, ex);
-            } catch (Exception ex) {
+            } catch (Throwable ex) {
                 if (!isCancelled()) {
                     logger.warn("Current task for topic-partition {} received error but it will be scheduled", topicIdPartition, ex);
                 }
@@ -1776,7 +1776,7 @@ public class RemoteLogManager implements Closeable {
             rlmTask.cancel();
             try {
                 future.cancel(true);
-            } catch (Exception ex) {
+            } catch (Throwable ex) {
                 LOGGER.error("Error occurred while canceling the task: {}", rlmTask, ex);
             }
         }
