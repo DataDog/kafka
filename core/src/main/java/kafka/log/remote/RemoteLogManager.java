@@ -801,7 +801,7 @@ public class RemoteLogManager implements Closeable {
             long bytesLag = log.onlyLocalLogSegmentsSize() - log.activeSegment().size();
             String topic = topicIdPartition.topic();
             int partition = topicIdPartition.partition();
-            long segmentsLag = log.onlyLocalLogSegmentsCount();
+            long segmentsLag = log.onlyLocalLogSegmentsCount() - 1;
             brokerTopicStats.recordRemoteCopyLagBytes(topic, partition, bytesLag);
             brokerTopicStats.recordRemoteCopyLagSegments(topic, partition, segmentsLag);
         }
