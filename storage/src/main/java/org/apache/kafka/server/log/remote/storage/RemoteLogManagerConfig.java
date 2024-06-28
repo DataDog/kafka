@@ -186,6 +186,11 @@ public final class RemoteLogManagerConfig extends AbstractConfig {
     public static final String REMOTE_FETCH_MAX_WAIT_MS_DOC = "The maximum amount of time the server will wait before answering the remote fetch request";
     public static final int DEFAULT_REMOTE_FETCH_MAX_WAIT_MS = 500;
 
+    // FIXME(francois.visconte) This is temporary during the migration to "remote.fetch.max.wait.ms"
+    public static final String REMOTE_LOG_READER_FETCH_TIMEOUT_MS_PROP = "remote.log.reader.fetch.timeout.ms";
+    public static final String REMOTE_LOG_READER_FETCH_TIMEOUT_MS_DOC = "Fetch timeout for reading remote log";
+    public static final int DEFAULT_REMOTE_LOG_READER_FETCH_TIMEOUT_MS = 2000;
+
     public static ConfigDef configDef() {
         return new ConfigDef()
                 .define(REMOTE_LOG_STORAGE_SYSTEM_ENABLE_PROP,
@@ -351,7 +356,13 @@ public final class RemoteLogManagerConfig extends AbstractConfig {
                         DEFAULT_REMOTE_FETCH_MAX_WAIT_MS,
                         atLeast(1),
                         MEDIUM,
-                        REMOTE_FETCH_MAX_WAIT_MS_DOC);
+                        REMOTE_FETCH_MAX_WAIT_MS_DOC)
+                .define(REMOTE_LOG_READER_FETCH_TIMEOUT_MS_PROP,
+                        LONG,
+                        DEFAULT_REMOTE_LOG_READER_FETCH_TIMEOUT_MS,
+                        atLeast(1),
+                        MEDIUM,
+                        REMOTE_LOG_READER_FETCH_TIMEOUT_MS_DOC);
     }
 
     public RemoteLogManagerConfig(Map<?, ?> props) {
