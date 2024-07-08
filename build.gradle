@@ -935,6 +935,7 @@ project(':core') {
     implementation project(':storage')
     implementation project(':server')
 
+    implementation libs.awssdk
     implementation libs.dogstatsd
     implementation libs.argparse4j
     implementation libs.commonsValidator
@@ -1670,6 +1671,7 @@ project(':server-common') {
 
   dependencies {
     api project(':clients')
+    implementation libs.awssdk
     implementation libs.dogstatsd
     implementation libs.slf4jApi
     implementation libs.metrics

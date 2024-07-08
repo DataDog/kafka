@@ -263,4 +263,5 @@ libs += [
   zstd: "com.github.luben:zstd-jni:$versions.zstd",
   httpclient: "org.apache.httpcomponents:httpclient:$versions.httpclient",
   dogstatsd: "com.datadoghq:java-dogstatsd-client:4.2.0",
+  awssdk: "software.amazon.awssdk:s3:2.25.64",
 ]

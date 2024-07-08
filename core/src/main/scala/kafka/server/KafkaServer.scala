@@ -171,6 +171,8 @@ class KafkaServer(
   private var _zkClient: KafkaZkClient = _
   private var configRepository: ZkConfigRepository = _
 
+  //private var _s3Client: KafkaS3Client = _
+
   val correlationId: AtomicInteger = new AtomicInteger(0)
 
   private var _clusterId: String = _
@@ -225,6 +227,9 @@ class KafkaServer(
         /* setup zookeeper */
         initZkClient(time)
         configRepository = new ZkConfigRepository(new AdminZkClient(zkClient))
+
+        /* setup s3 client */
+        initS3Client()
 
         /* Get or create cluster_id */
         _clusterId = getOrGenerateClusterId(zkClient)
@@ -716,6 +721,12 @@ class KafkaServer(
     info(s"Connecting to zookeeper on ${config.zkConnect}")
     _zkClient = KafkaZkClient.createZkClient("Kafka server", time, config, zkClientConfig)
     _zkClient.createTopLevelPaths()
+  }
+
+  private def initS3Client(): Unit = {
+    info(s"Creating S3 client")
+    //_s3Client = KafkaS3Client.apply()
+    //info(s"Created S3 client")
   }
 
   private def getOrGenerateClusterId(zkClient: KafkaZkClient): String = {
