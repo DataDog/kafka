@@ -726,7 +726,7 @@ class KafkaServer(
 
   private def initS3Client(): Unit = {
     info("Creating S3 client")
-    var s3Client = KafkaS3Client.apply()
+    val s3Client = KafkaS3Client.apply()
     info(s"Created S3 client")
     s3Client.upload()
   }
