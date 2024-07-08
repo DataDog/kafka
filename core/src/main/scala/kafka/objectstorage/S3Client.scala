@@ -19,8 +19,22 @@ package kafka.objectstorage
 
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.PutObjectRequest
+
+import java.nio.file.Files
 
 class KafkaS3Client(s3Client: S3Client) {
+  def upload(): Unit = {
+    val filePath = Files.createTempFile("upload-", ".txt")
+    Files.write(filePath, "foo".getBytes)
+
+    val putObjectRequest = PutObjectRequest.builder()
+      .bucket("dd-kafka-tiered-storage-staging-us1-staging-dog")
+      .key("hackweek/kafka-martin-tst3-094d/test")
+      .build()
+
+    s3Client.putObject(putObjectRequest, filePath)
+  }
 }
 
 object KafkaS3Client {

@@ -26,6 +26,7 @@ import kafka.log.LogManager
 import kafka.log.remote.RemoteLogManager
 import kafka.metrics.KafkaMetricsReporter
 import kafka.network.{ControlPlaneAcceptor, DataPlaneAcceptor, RequestChannel, SocketServer}
+import kafka.objectstorage.KafkaS3Client
 import kafka.raft.KafkaRaftManager
 import kafka.security.CredentialProvider
 import kafka.server.metadata.{OffsetTrackingListener, ZkConfigRepository, ZkMetadataCache}
@@ -725,8 +726,9 @@ class KafkaServer(
 
   private def initS3Client(): Unit = {
     info("Creating S3 client")
-    //_s3Client = KafkaS3Client.apply()
-    //info(s"Created S3 client")
+    var s3Client = KafkaS3Client.apply()
+    info(s"Created S3 client")
+    s3Client.upload()
   }
 
   private def getOrGenerateClusterId(zkClient: KafkaZkClient): String = {
