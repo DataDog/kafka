@@ -737,7 +737,7 @@ class ReplicaManager(val config: KafkaConfig,
   /**
    * TODO: move this action queue to handle thread so we can simplify concurrency handling
    */
-  private val defaultActionQueue = new DelayedActionQueue
+  private[server] val defaultActionQueue = new DelayedActionQueue
 
   def tryCompleteActions(): Unit = defaultActionQueue.tryCompleteActions()
 

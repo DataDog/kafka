@@ -120,6 +120,7 @@ class KafkaApis(val requestChannel: RequestChannel,
   val requestHelper = new RequestHandlerHelper(requestChannel, quotas, time)
   val aclApis = new AclApis(authHelper, authorizer, requestHelper, "broker", config)
   val configManager = new ConfigAdminManager(brokerId, config, configRepository)
+  private val messageStore = new CustomMessageStore()
 
   def close(): Unit = {
     aclApis.close()
@@ -717,7 +718,7 @@ class KafkaApis(val requestChannel: RequestChannel,
       val internalTopicsAllowed = request.header.clientId == AdminUtils.ADMIN_CLIENT_ID
 
       // call the replica manager to append messages to the replicas
-      replicaManager.appendRecords(
+      messageStore.appendRecords(
         timeout = produceRequest.timeout.toLong,
         requiredAcks = produceRequest.acks,
         internalTopicsAllowed = internalTopicsAllowed,
@@ -1052,7 +1053,7 @@ class KafkaApis(val requestChannel: RequestChannel,
       )
 
       // call the replica manager to fetch messages from the local replica
-      replicaManager.fetchMessages(
+      messageStore.fetchMessages(
         params = params,
         fetchInfos = interesting,
         quota = replicationQuota(fetchRequest),
@@ -2470,7 +2471,7 @@ class KafkaApis(val requestChannel: RequestChannel,
           }
         }
 
-        replicaManager.appendRecords(
+        messageStore.appendRecords(
           timeout = config.requestTimeoutMs.toLong,
           requiredAcks = -1,
           internalTopicsAllowed = true,
