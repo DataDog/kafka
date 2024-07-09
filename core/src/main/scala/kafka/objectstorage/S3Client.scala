@@ -42,7 +42,7 @@ object KafkaS3Client {
   def apply(): KafkaS3Client = {
     val s3ClientBuilder = S3Client.builder()
     s3ClientBuilder.region(Region.US_EAST_1)
-    s3ClientBuilder.credentialsProvider(InstanceProfileCredentialsProvider)
+    s3ClientBuilder.credentialsProvider(InstanceProfileCredentialsProvider.create())
     new KafkaS3Client(s3ClientBuilder.build())
   }
 }
