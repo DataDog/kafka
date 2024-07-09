@@ -17,6 +17,7 @@
 
 package kafka.objectstorage
 
+import software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
@@ -41,6 +42,7 @@ object KafkaS3Client {
   def apply(): KafkaS3Client = {
     val s3ClientBuilder = S3Client.builder()
     s3ClientBuilder.region(Region.US_EAST_1)
+    s3ClientBuilder.credentialsProvider(InstanceProfileCredentialsProvider)
     new KafkaS3Client(s3ClientBuilder.build())
   }
 }
