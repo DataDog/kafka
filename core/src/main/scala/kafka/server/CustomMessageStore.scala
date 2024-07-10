@@ -1,6 +1,5 @@
 package kafka.server
 import kafka.Kafka.info
-import org.apache.kafka.common.protocol.Errors
 import org.apache.kafka.common.{TopicIdPartition, TopicPartition}
 import org.apache.kafka.common.record.{MemoryRecords, RecordValidationStats}
 import org.apache.kafka.common.requests.{FetchRequest, ProduceResponse}
@@ -8,11 +7,15 @@ import org.apache.kafka.common.utils.Time
 import org.apache.kafka.storage.internals.log.{AppendOrigin, FetchParams, FetchPartitionData}
 import org.apache.log4j.helpers.LogLog.warn
 
-import java.util.{Optional, OptionalInt, OptionalLong}
 import java.util.concurrent.locks.Lock
 
 class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
-  val time = Time.SYSTEM
+  val time: Time = Time.SYSTEM
+  private val customMessageStoredDelayedFetchPurgatory = DelayedOperationPurgatory[CustomMessageStoreDelayedFetch](
+    purgatoryName = "CustomMessageStoreFetch",
+    brokerId = replicaManager.config.brokerId,
+    purgeInterval = replicaManager.config.fetchPurgatoryPurgeIntervalRequests
+  )
 
   /**
    * Append messages to leader replicas of the partition, and wait for them to be replicated to other replicas;
@@ -73,20 +76,12 @@ class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
       warn(s"received fetch request with params $params and payload $fetchInfos, unexpected since this is from a follower")
       throw new NotImplementedError("custom message store only supports RF=1 topics, there should be no internal replication")
     }
-    info(s"received fetch request with params $params and payload $fetchInfos, will send empty response")
-    val fetchPartitionData = fetchInfos.map { case (topicIdPartition, _) =>
-      topicIdPartition -> new FetchPartitionData(
-        Errors.NONE,
-        0,
-        0,
-        MemoryRecords.EMPTY,
-        Optional.empty(),
-        OptionalLong.empty(),
-        Optional.empty(),
-        OptionalInt.empty(),
-        false
-      )
-    }
-    responseCallback(fetchPartitionData)
+    val delayedFetch = new CustomMessageStoreDelayedFetch(
+      params = params,
+      fetchInfos = fetchInfos,
+      responseCallback = responseCallback
+    )
+    val delayedFetchKeys = fetchInfos.map { case (tp, _) => TopicPartitionOperationKey(tp) }
+    customMessageStoredDelayedFetchPurgatory.tryCompleteElseWatch(delayedFetch, delayedFetchKeys)
   }
 }
