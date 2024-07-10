@@ -33,7 +33,7 @@ class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
       transactionalId: String,
       actionQueue: ActionQueue): Unit = {
     if (!origin.equals(AppendOrigin.CLIENT)) {
-      throw new NotImplementedError("only support dumb produce requests, none of that transactional bs")
+      throw new NotImplementedError("only support basic produce requests, nothing related to transactions")
     }
     info(s"received produce request with payload $entriesPerPartition")
     lock.synchronized {
@@ -64,7 +64,8 @@ class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
       params = params,
       fetchInfos = fetchInfos,
       responseCallback = responseCallback,
-      storeState = inMemoryState
+      storeState = inMemoryState,
+      storeStateLock = lock,
     )
     val delayedFetchKeys = fetchInfos.map { case (tp, _) => TopicPartitionOperationKey(tp) }
     customMessageStoredDelayedFetchPurgatory.tryCompleteElseWatch(delayedFetch, delayedFetchKeys)
