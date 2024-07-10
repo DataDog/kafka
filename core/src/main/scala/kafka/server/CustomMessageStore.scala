@@ -1,13 +1,17 @@
 package kafka.server
 import kafka.Kafka.info
 import org.apache.kafka.common.{TopicIdPartition, TopicPartition}
-import org.apache.kafka.common.record.{MemoryRecords, RecordValidationStats}
+import org.apache.kafka.common.record.{MemoryRecords, MemoryRecordsBuilder, RecordValidationStats}
 import org.apache.kafka.common.requests.{FetchRequest, ProduceResponse}
 import org.apache.kafka.storage.internals.log.{AppendOrigin, FetchParams, FetchPartitionData}
 
+import java.nio.ByteBuffer
 import java.util.concurrent.locks.Lock
+import scala.:+
+import scala.collection.mutable
 
 class CustomMessageStore extends IMessageStore {
+  private val inMemoryState: mutable.Map[TopicPartition, Seq[MemoryRecords]] = mutable.Map()
 
   /**
    * Append messages to leader replicas of the partition, and wait for them to be replicated to other replicas;
@@ -46,6 +50,12 @@ class CustomMessageStore extends IMessageStore {
       throw new NotImplementedError("only support dumb produce requests, none of that transactional bs")
     }
     info(s"received produce request with payload $entriesPerPartition")
+    entriesPerPartition.foreach { entry =>
+      // todo: validate still leader for this partition
+      val updated: Seq[MemoryRecords] = inMemoryState.getOrElse(entry._1, List()) :+ entry._2
+      inMemoryState.update(entry._1, updated)
+    }
+    responseCallback()
   }
 
   /**
