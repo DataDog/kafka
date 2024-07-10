@@ -1457,7 +1457,7 @@ class Partition(val topicPartition: TopicPartition,
     }
   }
 
-  private def followerReplicaOrThrow(
+  def followerReplicaOrThrow(
     replicaId: Int,
     fetchPartitionData: FetchRequest.PartitionData
   ): Replica = {

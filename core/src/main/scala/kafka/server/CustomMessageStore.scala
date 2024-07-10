@@ -1,17 +1,15 @@
 package kafka.server
 import kafka.Kafka.info
 import org.apache.kafka.common.{TopicIdPartition, TopicPartition}
-import org.apache.kafka.common.record.{MemoryRecords, MemoryRecordsBuilder, RecordValidationStats}
+import org.apache.kafka.common.record.{MemoryRecords, RecordValidationStats}
 import org.apache.kafka.common.requests.{FetchRequest, ProduceResponse}
-import org.apache.kafka.storage.internals.log.{AppendOrigin, FetchParams, FetchPartitionData}
+import org.apache.kafka.common.utils.Time
+import org.apache.kafka.storage.internals.log.{AppendOrigin, FetchParams, FetchPartitionData, LogOffsetMetadata}
 
-import java.nio.ByteBuffer
 import java.util.concurrent.locks.Lock
-import scala.:+
-import scala.collection.mutable
 
-class CustomMessageStore extends IMessageStore {
-  private val inMemoryState: mutable.Map[TopicPartition, Seq[MemoryRecords]] = mutable.Map()
+class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
+  val time = Time.SYSTEM
 
   /**
    * Append messages to leader replicas of the partition, and wait for them to be replicated to other replicas;
@@ -50,12 +48,12 @@ class CustomMessageStore extends IMessageStore {
       throw new NotImplementedError("only support dumb produce requests, none of that transactional bs")
     }
     info(s"received produce request with payload $entriesPerPartition")
-    entriesPerPartition.foreach { entry =>
-      // todo: validate still leader for this partition
-      val updated: Seq[MemoryRecords] = inMemoryState.getOrElse(entry._1, List()) :+ entry._2
-      inMemoryState.update(entry._1, updated)
-    }
-    responseCallback()
+    //entriesPerPartition.foreach { entry =>
+    //  // todo: validate still leader for this partition
+    //  val updated: Seq[MemoryRecords] = inMemoryState.getOrElse(entry._1, List()) :+ entry._2
+    //  inMemoryState.update(entry._1, updated)
+    //}
+    responseCallback(Map())
   }
 
   /**
@@ -68,6 +66,20 @@ class CustomMessageStore extends IMessageStore {
       fetchInfos: collection.Seq[(TopicIdPartition, FetchRequest.PartitionData)],
       quota: ReplicaQuota,
       responseCallback: collection.Seq[(TopicIdPartition, FetchPartitionData)] => Unit): Unit = {
-    info(s"received fetch request with payload $fetchInfos")
+    info(s"received fetch request with payload $fetchInfos, not responding but will update follower state to say it's in sync")
+    if (params.isFromFollower) {
+      fetchInfos.foreach { case (tp, fetchInfo) =>
+        val partition = replicaManager.getPartitionOrException(tp.topicPartition)
+        val replica = partition.followerReplicaOrThrow(params.replicaId, fetchInfo)
+        partition.updateFollowerFetchState(
+          replica,
+          followerFetchOffsetMetadata = new LogOffsetMetadata(fetchInfo.fetchOffset),
+          followerStartOffset = fetchInfo.logStartOffset,
+          followerFetchTimeMs = time.milliseconds(),
+          leaderEndOffset = fetchInfo.fetchOffset,
+          params.replicaEpoch
+        )
+      }
+    }
   }
 }
