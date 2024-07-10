@@ -68,18 +68,8 @@ class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
       responseCallback: collection.Seq[(TopicIdPartition, FetchPartitionData)] => Unit): Unit = {
     info(s"received fetch request with payload $fetchInfos, not responding but will update follower state to say it's in sync")
     if (params.isFromFollower) {
-      fetchInfos.foreach { case (tp, fetchInfo) =>
-        val partition = replicaManager.getPartitionOrException(tp.topicPartition)
-        val replica = partition.followerReplicaOrThrow(params.replicaId, fetchInfo)
-        partition.updateFollowerFetchState(
-          replica,
-          followerFetchOffsetMetadata = new LogOffsetMetadata(fetchInfo.fetchOffset),
-          followerStartOffset = fetchInfo.logStartOffset,
-          followerFetchTimeMs = time.milliseconds(),
-          leaderEndOffset = fetchInfo.fetchOffset,
-          params.replicaEpoch
-        )
-      }
+      throw new NotImplementedError("custom message store only supports RF=1 topics, there should be no internal replication")
     }
+    responseCallback(Seq())
   }
 }
