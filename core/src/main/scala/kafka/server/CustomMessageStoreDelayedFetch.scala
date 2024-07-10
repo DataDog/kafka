@@ -1,17 +1,19 @@
 package kafka.server
 
-import org.apache.kafka.common.TopicIdPartition
+import org.apache.kafka.common.{TopicIdPartition, TopicPartition}
 import org.apache.kafka.common.protocol.Errors
 import org.apache.kafka.common.record.MemoryRecords
 import org.apache.kafka.common.requests.FetchRequest
 import org.apache.kafka.storage.internals.log.{FetchParams, FetchPartitionData}
 
 import java.util.{Optional, OptionalInt, OptionalLong}
+import scala.collection.mutable
 
 class CustomMessageStoreDelayedFetch(
     params: FetchParams,
     fetchInfos: collection.Seq[(TopicIdPartition, FetchRequest.PartitionData)],
-    responseCallback: collection.Seq[(TopicIdPartition, FetchPartitionData)] => Unit
+    responseCallback: collection.Seq[(TopicIdPartition, FetchPartitionData)] => Unit,
+    storeState: mutable.Map[TopicPartition, Seq[MemoryRecords]],
 ) extends DelayedOperation(params.maxWaitMs) {
   /**
    * Call-back to execute when a delayed operation gets expired and hence forced to complete.
@@ -27,6 +29,9 @@ class CustomMessageStoreDelayedFetch(
   override def onComplete(): Unit = {
     info(s"onComplete for CustomMessageStoredDelayedFetch with params $params, fetchInfos $fetchInfos")
     val fetchPartitionData = fetchInfos.map { case (topicIdPartition, _) =>
+      // todo: lock store state
+      val records = storeState.get(topicIdPartition.topicPartition())
+      info(s"store state for partition $topicIdPartition is $records")
       topicIdPartition -> new FetchPartitionData(
         Errors.NONE,
         0,

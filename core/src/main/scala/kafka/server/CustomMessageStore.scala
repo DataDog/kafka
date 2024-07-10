@@ -3,41 +3,23 @@ import kafka.Kafka.info
 import org.apache.kafka.common.{TopicIdPartition, TopicPartition}
 import org.apache.kafka.common.record.{MemoryRecords, RecordValidationStats}
 import org.apache.kafka.common.requests.{FetchRequest, ProduceResponse}
-import org.apache.kafka.common.utils.Time
 import org.apache.kafka.storage.internals.log.{AppendOrigin, FetchParams, FetchPartitionData}
 import org.apache.log4j.helpers.LogLog.warn
 
 import java.util.concurrent.locks.Lock
+import scala.collection.mutable
 
 class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
-  val time: Time = Time.SYSTEM
+  // something simple but slow to start with
+  val lock: Object = new Object()
+  @volatile var inMemoryState: mutable.Map[TopicPartition, Seq[MemoryRecords]] = mutable.Map()
+
   private val customMessageStoredDelayedFetchPurgatory = DelayedOperationPurgatory[CustomMessageStoreDelayedFetch](
     purgatoryName = "CustomMessageStoreFetch",
     brokerId = replicaManager.config.brokerId,
     purgeInterval = replicaManager.config.fetchPurgatoryPurgeIntervalRequests
   )
 
-  /**
-   * Append messages to leader replicas of the partition, and wait for them to be replicated to other replicas;
-   * the callback function will be triggered either when timeout or the required acks are satisfied;
-   * if the callback function itself is already synchronized on some object then pass this object to avoid deadlock.
-   *
-   * Noted that all pending delayed check operations are stored in a queue. All callers to ReplicaManager.appendRecords()
-   * are expected to call ActionQueue.tryCompleteActions for all affected partitions, without holding any conflicting
-   * locks.
-   *
-   * @param timeout                       maximum time we will wait to append before returning
-   * @param requiredAcks                  number of replicas who must acknowledge the append before sending the response
-   * @param internalTopicsAllowed         boolean indicating whether internal topics can be appended to
-   * @param origin                        source of the append request (ie, client, replication, coordinator)
-   * @param entriesPerPartition           the records per partition to be appended
-   * @param responseCallback              callback for sending the response
-   * @param delayedProduceLock            lock for the delayed actions
-   * @param recordValidationStatsCallback callback for updating stats on record conversions
-   * @param requestLocal                  container for the stateful instances scoped to this request
-   * @param transactionalId               transactional ID if the request is from a producer and the producer is transactional
-   * @param actionQueue                   the action queue to use. ReplicaManager#defaultActionQueue is used by default.
-   */
   override def appendRecords(
       timeout: Long,
       requiredAcks: Short,
@@ -54,11 +36,13 @@ class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
       throw new NotImplementedError("only support dumb produce requests, none of that transactional bs")
     }
     info(s"received produce request with payload $entriesPerPartition")
-    //entriesPerPartition.foreach { entry =>
-    //  // todo: validate still leader for this partition
-    //  val updated: Seq[MemoryRecords] = inMemoryState.getOrElse(entry._1, List()) :+ entry._2
-    //  inMemoryState.update(entry._1, updated)
-    //}
+    lock.synchronized {
+      entriesPerPartition.foreach { entry =>
+        // todo: validate still leader for this partition
+        val updated: Seq[MemoryRecords] = inMemoryState.getOrElse(entry._1, List()) :+ entry._2
+        inMemoryState.update(entry._1, updated)
+      }
+    }
     responseCallback(Map())
   }
 
@@ -79,7 +63,8 @@ class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
     val delayedFetch = new CustomMessageStoreDelayedFetch(
       params = params,
       fetchInfos = fetchInfos,
-      responseCallback = responseCallback
+      responseCallback = responseCallback,
+      storeState = inMemoryState
     )
     val delayedFetchKeys = fetchInfos.map { case (tp, _) => TopicPartitionOperationKey(tp) }
     customMessageStoredDelayedFetchPurgatory.tryCompleteElseWatch(delayedFetch, delayedFetchKeys)
