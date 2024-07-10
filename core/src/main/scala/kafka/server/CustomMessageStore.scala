@@ -4,7 +4,7 @@ import org.apache.kafka.common.{TopicIdPartition, TopicPartition}
 import org.apache.kafka.common.record.{MemoryRecords, RecordValidationStats}
 import org.apache.kafka.common.requests.{FetchRequest, ProduceResponse}
 import org.apache.kafka.common.utils.Time
-import org.apache.kafka.storage.internals.log.{AppendOrigin, FetchParams, FetchPartitionData, LogOffsetMetadata}
+import org.apache.kafka.storage.internals.log.{AppendOrigin, FetchParams, FetchPartitionData}
 
 import java.util.concurrent.locks.Lock
 
