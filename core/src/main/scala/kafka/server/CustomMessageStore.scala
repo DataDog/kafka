@@ -5,6 +5,7 @@ import org.apache.kafka.common.record.{MemoryRecords, RecordValidationStats}
 import org.apache.kafka.common.requests.{FetchRequest, ProduceResponse}
 import org.apache.kafka.common.utils.Time
 import org.apache.kafka.storage.internals.log.{AppendOrigin, FetchParams, FetchPartitionData}
+import org.apache.log4j.helpers.LogLog.warn
 
 import java.util.concurrent.locks.Lock
 
@@ -66,10 +67,11 @@ class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
       fetchInfos: collection.Seq[(TopicIdPartition, FetchRequest.PartitionData)],
       quota: ReplicaQuota,
       responseCallback: collection.Seq[(TopicIdPartition, FetchPartitionData)] => Unit): Unit = {
-    info(s"received fetch request with payload $fetchInfos, not responding but will update follower state to say it's in sync")
     if (params.isFromFollower) {
+      warn(s"received fetch request with params $params and payload $fetchInfos, unexpected since this is from a follower")
       throw new NotImplementedError("custom message store only supports RF=1 topics, there should be no internal replication")
     }
+    info(s"received fetch request with params $params and payload $fetchInfos, will send empty response")
     responseCallback(Seq())
   }
 }
