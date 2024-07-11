@@ -40,7 +40,7 @@ class CustomMessageStoreDelayedFetch(
         } else {
           val records = maybeRecords.get.toList
           // todo: should really be returning multiple records until fetchMaxBytes is filled, for
-          //       now just return the memrecords at the requested offset
+          //       now just return the records at the requested offset
           val toReturnRecords = records(fetchInfo.fetchOffset.toInt)
           new FetchPartitionData(
             Errors.NONE,

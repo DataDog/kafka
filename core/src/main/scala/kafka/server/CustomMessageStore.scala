@@ -48,7 +48,7 @@ class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
 
         // todo: offset mgmt currently assume single message (hence single compression batch) per produce request
         val initialRecords: Seq[MemoryRecords] = inMemoryState.getOrElse(entry._1, List())
-        val initialLogEndOffset = initialRecords.size
+        val initialLogEndOffset = initialRecords.size - 1
 
         val newRecords = entry._2
         val newLogEndOffset = initialLogEndOffset + 1
