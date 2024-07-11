@@ -26,7 +26,6 @@ class CustomMessageStoreDelayedFetch(
     val fetchPartitionData = fetchInfos.map { case (topicIdPartition, fetchInfo) =>
       storeStateLock.synchronized {
         val maybeRecords = storeState.get(topicIdPartition.topicPartition())
-        info(s"store state for partition $topicIdPartition is $maybeRecords")
         if (maybeRecords.isEmpty || maybeRecords.get.isEmpty) {
           topicIdPartition -> new FetchPartitionData(
             Errors.NONE,
@@ -43,7 +42,10 @@ class CustomMessageStoreDelayedFetch(
           val records = maybeRecords.get.toList
           // todo: should really be returning multiple records until fetchMaxBytes is filled, for
           //       now just return the memrecords at the requested offset
+          info(s"have records $records")
+          info(s"going to index in to get the record at ${fetchInfo.fetchOffset.toInt}")
           val toReturnRecords = records(fetchInfo.fetchOffset.toInt)
+          info(s"going to return record $toReturnRecords")
           topicIdPartition -> new FetchPartitionData(
             Errors.NONE,
             records.size, // hwm
