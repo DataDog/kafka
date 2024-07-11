@@ -16,7 +16,6 @@ class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
   // something simple but slow to start with
   val lock: Object = new Object()
   @volatile var inMemoryState: mutable.Map[TopicPartition, Seq[MemoryRecords]] = mutable.Map()
-  @volatile var logEndOffsetsPerPartition: mutable.Map[TopicPartition, Long] = mutable.Map()
 
   private val customMessageStoredDelayedFetchPurgatory = DelayedOperationPurgatory[CustomMessageStoreDelayedFetch](
     purgatoryName = "CustomMessageStoreFetch",
@@ -47,16 +46,15 @@ class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
 
         // todo: size validation, crc validation, etc
 
-        // unpack each message individually
-        val updated: Seq[MemoryRecords] = inMemoryState.getOrElse(entry._1, List()) :+ entry._2
-        inMemoryState.update(entry._1, updated)
+        // todo: offset mgmt currently assume single message (hence single compression batch) per produce request
+        val initialRecords: Seq[MemoryRecords] = inMemoryState.getOrElse(entry._1, List())
+        val initialLogEndOffset = initialRecords.size
 
-        // todo: timestamps?
-        // todo: handle compression?
-        val initialLogEndOffset = logEndOffsetsPerPartition.getOrElse(entry._1, 0L)
-        // todo: extract batches / records from memory records and assign offsets properly?
+        val newRecords = entry._2
         val newLogEndOffset = initialLogEndOffset + 1
-        logEndOffsetsPerPartition.update(entry._1, initialLogEndOffset + 1)
+
+        newRecords.batches().asScala.last.setLastOffset(initialLogEndOffset+1)
+        inMemoryState.update(entry._1, initialRecords :+ newRecords)
 
         produceResponse.put(entry._1, new ProduceResponse.PartitionResponse(
           Errors.NONE,
