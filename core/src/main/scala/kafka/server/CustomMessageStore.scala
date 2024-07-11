@@ -47,6 +47,7 @@ class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
 
         // todo: size validation, crc validation, etc
 
+        // unpack each message individually
         val updated: Seq[MemoryRecords] = inMemoryState.getOrElse(entry._1, List()) :+ entry._2
         inMemoryState.update(entry._1, updated)
 

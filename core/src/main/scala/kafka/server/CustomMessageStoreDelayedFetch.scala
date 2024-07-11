@@ -8,6 +8,7 @@ import org.apache.kafka.storage.internals.log.{FetchParams, FetchPartitionData}
 
 import java.util.{Optional, OptionalInt, OptionalLong}
 import scala.collection.mutable
+import scala.jdk.CollectionConverters.IterableHasAsScala
 
 class CustomMessageStoreDelayedFetch(
     params: FetchParams,
@@ -54,6 +55,10 @@ class CustomMessageStoreDelayedFetch(
           )
         }
         info(s"appending $partitionData for $topicIdPartition")
+        info(s"batches that are coming")
+        partitionData.records.batches().asScala.foreach {batch => info(s"batch $batch")}
+        info(s"records that are coming")
+        partitionData.records.records().asScala.foreach {record => info(s"record $record")}
         topicIdPartition -> partitionData
       }
     }
