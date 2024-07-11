@@ -23,22 +23,39 @@ class CustomMessageStoreDelayedFetch(
 
   override def onComplete(): Unit = {
     info(s"onComplete for CustomMessageStoredDelayedFetch with params $params, fetchInfos $fetchInfos")
-    val fetchPartitionData = fetchInfos.map { case (topicIdPartition, _) =>
+    val fetchPartitionData = fetchInfos.map { case (topicIdPartition, fetchInfo) =>
       storeStateLock.synchronized {
-        val records = storeState.get(topicIdPartition.topicPartition())
-        info(s"store state for partition $topicIdPartition is $records")
-        val recordsToReturn = if (records.isEmpty || records.get.isEmpty) MemoryRecords.EMPTY else records.get.last
-        topicIdPartition -> new FetchPartitionData(
-          Errors.NONE,
-          0,
-          0,
-          recordsToReturn,
-          Optional.empty(),
-          OptionalLong.empty(),
-          Optional.empty(),
-          OptionalInt.empty(),
-          false
-        )
+        val maybeRecords = storeState.get(topicIdPartition.topicPartition())
+        info(s"store state for partition $topicIdPartition is $maybeRecords")
+        if (maybeRecords.isEmpty || maybeRecords.get.isEmpty) {
+          topicIdPartition -> new FetchPartitionData(
+            Errors.NONE,
+            0, // hwm
+            0, // lso
+            MemoryRecords.EMPTY,
+            Optional.empty(),
+            OptionalLong.empty(),
+            Optional.empty(),
+            OptionalInt.empty(),
+            false
+          )
+        } else {
+          val records = maybeRecords.get.toList
+          // todo: should really be returning multiple records until fetchMaxBytes is filled, for
+          //       now just return the memrecords at the requested offset
+          val toReturnRecords = records(fetchInfo.fetchOffset.toInt)
+          topicIdPartition -> new FetchPartitionData(
+            Errors.NONE,
+            records.size, // hwm
+            0, // lso
+            toReturnRecords,
+            Optional.empty(),
+            OptionalLong.empty(),
+            Optional.empty(),
+            OptionalInt.empty(),
+            false
+          )
+        }
       }
     }
     responseCallback(fetchPartitionData)

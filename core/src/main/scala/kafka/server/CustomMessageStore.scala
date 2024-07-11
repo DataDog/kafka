@@ -2,7 +2,7 @@ package kafka.server
 import kafka.Kafka.info
 import org.apache.kafka.common.protocol.Errors
 import org.apache.kafka.common.{TopicIdPartition, TopicPartition}
-import org.apache.kafka.common.record.{CompressionType, MemoryRecords, RecordBatch, RecordValidationStats}
+import org.apache.kafka.common.record.{MemoryRecords, RecordValidationStats}
 import org.apache.kafka.common.requests.{FetchRequest, ProduceResponse}
 import org.apache.kafka.common.utils.Time
 import org.apache.kafka.storage.internals.log.{AppendOrigin, FetchParams, FetchPartitionData}
@@ -51,22 +51,11 @@ class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
         inMemoryState.update(entry._1, updated)
 
         // todo: timestamps?
+        // todo: handle compression?
         val initialLogEndOffset = logEndOffsetsPerPartition.getOrElse(entry._1, 0L)
-        var recordCount = 0L
-        entry._2.batches().asScala.foreach(batch => {
-            if (batch.magic() < RecordBatch.MAGIC_VALUE_V2) {
-              throw new NotImplementedError("only support latest version")
-            }
-            if (batch.compressionType() != CompressionType.NONE) {
-              throw new NotImplementedError("don't yet support compression")
-            }
-
-            // todo: probably need a lot more validation but maybe not if we control the client?
-            batch.asScala.foreach(_ => {recordCount += 1})
-          }
-        )
-        val newLogEndOffset = initialLogEndOffset + recordCount
-        logEndOffsetsPerPartition.update(entry._1, newLogEndOffset)
+        // todo: extract batches / records from memory records and assign offsets properly?
+        val newLogEndOffset = initialLogEndOffset + 1
+        logEndOffsetsPerPartition.update(entry._1, initialLogEndOffset + 1)
 
         produceResponse.put(entry._1, new ProduceResponse.PartitionResponse(
           Errors.NONE,
