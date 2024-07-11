@@ -17,17 +17,15 @@ class CustomMessageStoreDelayedFetch(
     storeStateLock: Object
 ) extends DelayedOperation(params.maxWaitMs) {
 
-  override def onExpiration(): Unit = {
-    info(s"onExpire for CustomMessageStoredDelayedFetch with params $params, fetchInfos $fetchInfos")
-  }
+  override def onExpiration(): Unit = {}
 
   override def onComplete(): Unit = {
     info(s"onComplete for CustomMessageStoredDelayedFetch with params $params, fetchInfos $fetchInfos")
-    val fetchPartitionData = fetchInfos.map { case (topicIdPartition, fetchInfo) =>
-      storeStateLock.synchronized {
+    val fetchPartitionData = storeStateLock.synchronized {
+      fetchInfos.map { case (topicIdPartition, fetchInfo) =>
         val maybeRecords = storeState.get(topicIdPartition.topicPartition())
-        if (maybeRecords.isEmpty || maybeRecords.get.isEmpty) {
-          topicIdPartition -> new FetchPartitionData(
+        val partitionData = if (maybeRecords.isEmpty || maybeRecords.get.isEmpty) {
+          new FetchPartitionData(
             Errors.NONE,
             0, // hwm
             0, // lso
@@ -43,7 +41,7 @@ class CustomMessageStoreDelayedFetch(
           // todo: should really be returning multiple records until fetchMaxBytes is filled, for
           //       now just return the memrecords at the requested offset
           val toReturnRecords = records(fetchInfo.fetchOffset.toInt)
-          topicIdPartition -> new FetchPartitionData(
+          new FetchPartitionData(
             Errors.NONE,
             records.size, // high water mark
             0, // log start offset
@@ -55,6 +53,8 @@ class CustomMessageStoreDelayedFetch(
             false
           )
         }
+        info(s"appending $partitionData for $topicIdPartition")
+        topicIdPartition -> partitionData
       }
     }
     info(s"Calling response callback with $fetchPartitionData")
@@ -62,7 +62,6 @@ class CustomMessageStoreDelayedFetch(
   }
 
   override def tryComplete(): Boolean = {
-    info(s"Trying to complete CustomMessageStoredDelayedFetch with params $params, fetchInfos $fetchInfos")
     false
   }
 }
