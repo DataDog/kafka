@@ -48,11 +48,11 @@ class CustomMessageStoreDelayedFetch(
           info(s"going to return record $toReturnRecords")
           topicIdPartition -> new FetchPartitionData(
             Errors.NONE,
-            records.size, // hwm
-            0, // lso
+            records.size, // high water mark
+            0, // log start offset
             toReturnRecords,
             Optional.empty(),
-            OptionalLong.empty(),
+            OptionalLong.of(records.size), // last stable offset == high water mark since no transactions
             Optional.empty(),
             OptionalInt.empty(),
             false
