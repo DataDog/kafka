@@ -1,18 +1,22 @@
 package kafka.server
 import kafka.Kafka.info
+import org.apache.kafka.common.protocol.Errors
 import org.apache.kafka.common.{TopicIdPartition, TopicPartition}
-import org.apache.kafka.common.record.{MemoryRecords, RecordValidationStats}
+import org.apache.kafka.common.record.{CompressionType, MemoryRecords, RecordBatch, RecordValidationStats}
 import org.apache.kafka.common.requests.{FetchRequest, ProduceResponse}
+import org.apache.kafka.common.utils.Time
 import org.apache.kafka.storage.internals.log.{AppendOrigin, FetchParams, FetchPartitionData}
 import org.apache.log4j.helpers.LogLog.warn
 
 import java.util.concurrent.locks.Lock
 import scala.collection.mutable
+import scala.jdk.CollectionConverters._
 
 class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
   // something simple but slow to start with
   val lock: Object = new Object()
   @volatile var inMemoryState: mutable.Map[TopicPartition, Seq[MemoryRecords]] = mutable.Map()
+  @volatile var logEndOffsetsPerPartition: mutable.Map[TopicPartition, Long] = mutable.Map()
 
   private val customMessageStoredDelayedFetchPurgatory = DelayedOperationPurgatory[CustomMessageStoreDelayedFetch](
     purgatoryName = "CustomMessageStoreFetch",
@@ -37,10 +41,42 @@ class CustomMessageStore(replicaManager: ReplicaManager) extends IMessageStore {
     }
     info(s"received produce request with payload $entriesPerPartition")
     lock.synchronized {
+      val produceResponse: mutable.Map[TopicPartition, ProduceResponse.PartitionResponse] = mutable.Map()
       entriesPerPartition.foreach { entry =>
         // todo: validate still leader for this partition
+
+        // todo: size validation, crc validation, etc
+
         val updated: Seq[MemoryRecords] = inMemoryState.getOrElse(entry._1, List()) :+ entry._2
         inMemoryState.update(entry._1, updated)
+
+        // todo: timestamps?
+        val initialLogEndOffset = logEndOffsetsPerPartition.getOrElse(entry._1, 0L)
+        var recordCount = 0L
+        entry._2.batches().asScala.foreach(batch => {
+            if (batch.magic() < RecordBatch.MAGIC_VALUE_V2) {
+              throw new NotImplementedError("only support latest version")
+            }
+            if (batch.compressionType() != CompressionType.NONE) {
+              throw new NotImplementedError("don't yet support compression")
+            }
+
+            // todo: probably need a lot more validation but maybe not if we control the client?
+            batch.asScala.foreach(_ => {recordCount += 1})
+          }
+        )
+        val newLogEndOffset = initialLogEndOffset + recordCount
+        logEndOffsetsPerPartition.update(entry._1, newLogEndOffset)
+
+        produceResponse.put(entry._1, new ProduceResponse.PartitionResponse(
+          Errors.NONE,
+          initialLogEndOffset,
+          newLogEndOffset,
+          Time.SYSTEM.milliseconds(),
+          0L, // log start offset, always 0 since no retention enforcement yet
+          Seq().asJava, // assume no error records
+          "" // hence no error message
+        ))
       }
     }
     responseCallback(Map())
