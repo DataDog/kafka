@@ -29,15 +29,15 @@ object Election {
                                leaderAndIsrOpt: Option[LeaderAndIsr],
                                uncleanLeaderElectionEnabled: Boolean,
                                isLeaderRecoverySupported: Boolean,
-                               controllerContext: ControllerContext): ElectionResult = {
-
+                               controllerContext: ControllerContext,
+                               controllerBrokerRequestBatch: ControllerBrokerRequestBatch): ElectionResult = {
     val assignment = controllerContext.partitionReplicaAssignment(partition)
     val liveReplicas = assignment.filter(replica => controllerContext.isReplicaOnline(replica, partition))
     leaderAndIsrOpt match {
       case Some(leaderAndIsr) =>
         val isr = leaderAndIsr.isr
         val leaderOpt = PartitionLeaderElectionAlgorithms.offlinePartitionLeaderElection(
-          assignment, isr, liveReplicas.toSet, uncleanLeaderElectionEnabled, controllerContext)
+          assignment, isr, liveReplicas.toSet, uncleanLeaderElectionEnabled, controllerContext, controllerBrokerRequestBatch, partition)
         val newLeaderAndIsrOpt = leaderOpt.map { leader =>
           val newIsr = if (isr.contains(leader)) isr.filter(replica => controllerContext.isReplicaOnline(replica, partition))
           else List(leader)
@@ -69,13 +69,14 @@ object Election {
    * @return The election results
    */
   def leaderForOffline(
-    controllerContext: ControllerContext,
-    isLeaderRecoverySupported: Boolean,
-    partitionsWithUncleanLeaderRecoveryState: Seq[(TopicPartition, Option[LeaderAndIsr], Boolean)]
+                        controllerContext: ControllerContext,
+                        isLeaderRecoverySupported: Boolean,
+                        partitionsWithUncleanLeaderRecoveryState: Seq[(TopicPartition, Option[LeaderAndIsr], Boolean)],
+                        controllerBrokerRequestBatch: ControllerBrokerRequestBatch
   ): Seq[ElectionResult] = {
     partitionsWithUncleanLeaderRecoveryState.map {
       case (partition, leaderAndIsrOpt, uncleanLeaderElectionEnabled) =>
-        leaderForOffline(partition, leaderAndIsrOpt, uncleanLeaderElectionEnabled, isLeaderRecoverySupported, controllerContext)
+        leaderForOffline(partition, leaderAndIsrOpt, uncleanLeaderElectionEnabled, isLeaderRecoverySupported, controllerContext, controllerBrokerRequestBatch)
     }
   }
 

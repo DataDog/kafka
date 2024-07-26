@@ -27,6 +27,8 @@ import kafka.zk.KafkaZkClient.UpdateLeaderAndIsrResult
 import kafka.zk.TopicPartitionStateZNode
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.errors.ControllerMovedException
+import org.apache.kafka.common.message.DescribeLogDirsRequestData
+import org.apache.kafka.common.requests.{DescribeLogDirsRequest, LeaderAndIsrRequest}
 import org.apache.kafka.server.common.MetadataVersion.IBP_3_2_IV0
 import org.apache.zookeeper.KeeperException
 import org.apache.zookeeper.KeeperException.Code
@@ -417,7 +419,8 @@ class ZkPartitionStateMachine(config: KafkaConfig,
         leaderForOffline(
           controllerContext,
           isLeaderRecoverySupported,
-          partitionsWithUncleanLeaderElectionState
+          partitionsWithUncleanLeaderElectionState,
+          controllerBrokerRequestBatch
         ).partition(_.leaderAndIsr.isEmpty)
 
       case ReassignPartitionLeaderElectionStrategy =>
@@ -529,9 +532,10 @@ class ZkPartitionStateMachine(config: KafkaConfig,
 }
 
 object PartitionLeaderElectionAlgorithms {
-  def offlinePartitionLeaderElection(assignment: Seq[Int], isr: Seq[Int], liveReplicas: Set[Int], uncleanLeaderElectionEnabled: Boolean, controllerContext: ControllerContext): Option[Int] = {
+  def offlinePartitionLeaderElection(assignment: Seq[Int], isr: Seq[Int], liveReplicas: Set[Int], uncleanLeaderElectionEnabled: Boolean, controllerContext: ControllerContext, controllerBrokerRequestBatch: ControllerBrokerRequestBatch, partition: TopicPartition): Option[Int] = {
     assignment.find(id => liveReplicas.contains(id) && isr.contains(id)).orElse {
       if (uncleanLeaderElectionEnabled) {
+        val mostUpToDateLiveReplicaOpt = mostUpToDateLiveReplica(controllerBrokerRequestBatch, liveReplicas, partition)
         val leaderOpt = assignment.find(liveReplicas.contains)
         if (leaderOpt.isDefined)
           controllerContext.stats.uncleanLeaderElectionRate.mark()
@@ -540,6 +544,13 @@ object PartitionLeaderElectionAlgorithms {
         None
       }
     }
+  }
+
+  def mostUpToDateLiveReplica(controllerBrokerRequestBatch: ControllerBrokerRequestBatch, liveReplicas: Set[Int], partition: TopicPartition): Unit = {
+    val broker = liveReplicas.head
+    val describeLogDirsRequest = new DescribeLogDirsRequest.Builder(new DescribeLogDirsRequestData())
+    controllerBrokerRequestBatch.sendRequest(broker, describeLogDirsRequest, null)
+
   }
 
   def reassignPartitionLeaderElection(reassignment: Seq[Int], isr: Seq[Int], liveReplicas: Set[Int]): Option[Int] = {

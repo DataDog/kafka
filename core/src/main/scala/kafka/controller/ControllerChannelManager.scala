@@ -336,7 +336,7 @@ class ControllerBrokerRequestBatch(
     controllerEventManager.put(event)
   }
   def sendRequest(brokerId: Int,
-                  request: AbstractControlRequest.Builder[_ <: AbstractControlRequest],
+                  request: Either[AbstractControlRequest.Builder[_ <: AbstractControlRequest], DescribeLogDirsRequest.Builder],
                   callback: AbstractResponse => Unit = null): Unit = {
     controllerChannelManager.sendRequest(brokerId, request, callback)
   }
@@ -381,7 +381,7 @@ abstract class AbstractControllerBrokerRequestBatch(config: KafkaConfig,
   private var metadataInstance: ControllerChannelContext = _
 
   def sendRequest(brokerId: Int,
-                  request: AbstractControlRequest.Builder[_ <: AbstractControlRequest],
+                  request: Either[AbstractControlRequest.Builder[_ <: AbstractControlRequest], DescribeLogDirsRequest],
                   callback: AbstractResponse => Unit = null): Unit
 
   def newBatch(): Unit = {
@@ -737,6 +737,10 @@ abstract class AbstractControllerBrokerRequestBatch(config: KafkaConfig,
 
   def handleStopReplicaResponse(stopReplicaResponse: StopReplicaResponse, brokerId: Int,
                                 partitionErrorsForDeletingTopics: Map[TopicPartition, Errors]): Unit
+
+  def sendDescribeLogDirsRequest(): Unit = {
+
+  }
 
   def sendRequestsToBrokers(controllerEpoch: Int): Unit = {
     try {
