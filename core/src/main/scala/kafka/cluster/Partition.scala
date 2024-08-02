@@ -84,6 +84,7 @@ trait AlterPartitionListener {
   def markIsrExpand(): Unit
   def markIsrShrink(): Unit
   def markFailed(): Unit
+  def markDemoteSelf(): Unit
 }
 
 class DelayedOperations(topicPartition: TopicPartition,
@@ -118,6 +119,8 @@ object Partition {
       }
 
       override def markFailed(): Unit = replicaManager.failedIsrUpdatesRate.mark()
+
+      override def markDemoteSelf(): Unit = {}
     }
 
     val delayedOperations = new DelayedOperations(
@@ -243,6 +246,24 @@ case class PendingShrinkIsr(
     s", leaderRecoveryState=$leaderRecoveryState" +
     s", lastCommittedState=$lastCommittedState" +
     ")"
+  }
+}
+
+case class PendingDemoteSelf(
+  newLeaderId: Int,
+  sentLeaderAndIsr: LeaderAndIsr,
+  lastCommittedState: CommittedPartitionState
+) extends PendingPartitionChange {
+  val isr = lastCommittedState.isr
+  val maximalIsr = isr
+  val isInflight = true
+
+  override def notifyListener(alterPartitionListener: AlterPartitionListener): Unit = {
+    alterPartitionListener.markDemoteSelf()
+  }
+
+  override def toString: String = {
+    s"hello"
   }
 }
 
@@ -1237,22 +1258,28 @@ class Partition(val topicPartition: TopicPartition,
           val outOfSyncReplicaIds = getOutOfSyncReplicas(replicaLagTimeMaxMs)
           partitionState match {
             case currentState: CommittedPartitionState if outOfSyncReplicaIds.nonEmpty =>
-              val outOfSyncReplicaLog = outOfSyncReplicaIds.map { replicaId =>
-                val replicaStateSnapshot = getReplica(replicaId).map(_.stateSnapshot)
-                val logEndOffsetMessage = replicaStateSnapshot
-                  .map(_.logEndOffset.toString)
-                  .getOrElse("unknown")
-                val lastCaughtUpTimeMessage = replicaStateSnapshot
-                  .map(_.lastCaughtUpTimeMs.toString)
-                  .getOrElse("unknown")
-                s"(brokerId: $replicaId, endOffset: $logEndOffsetMessage, lastCaughtUpTimeMs: $lastCaughtUpTimeMessage)"
-              }.mkString(" ")
-              val newIsrLog = (partitionState.isr -- outOfSyncReplicaIds).mkString(",")
-              info(s"Shrinking ISR from ${partitionState.isr.mkString(",")} to $newIsrLog. " +
-                s"Leader: (highWatermark: ${leaderLog.highWatermark}, " +
-                s"endOffset: ${leaderLog.logEndOffset}). " +
-                s"Out of sync replicas: $outOfSyncReplicaLog.")
-              Some(prepareIsrShrink(currentState, outOfSyncReplicaIds))
+              if (shouldAttemptDemoteSelf(outOfSyncReplicaIds)) {
+                val newLeader = partitionState.isr.filter(id => !id.equals(localBrokerId)).head
+                info(s"Attempting handover to $newLeader instead of shrinking ISR to singleton")
+                Some(prepareDemoteSelf(currentState, newLeader))
+              } else {
+                val outOfSyncReplicaLog = outOfSyncReplicaIds.map { replicaId =>
+                  val replicaStateSnapshot = getReplica(replicaId).map(_.stateSnapshot)
+                  val logEndOffsetMessage = replicaStateSnapshot
+                    .map(_.logEndOffset.toString)
+                    .getOrElse("unknown")
+                  val lastCaughtUpTimeMessage = replicaStateSnapshot
+                    .map(_.lastCaughtUpTimeMs.toString)
+                    .getOrElse("unknown")
+                  s"(brokerId: $replicaId, endOffset: $logEndOffsetMessage, lastCaughtUpTimeMs: $lastCaughtUpTimeMessage)"
+                }.mkString(" ")
+                val newIsrLog = (partitionState.isr -- outOfSyncReplicaIds).mkString(",")
+                info(s"Shrinking ISR from ${partitionState.isr.mkString(",")} to $newIsrLog. " +
+                  s"Leader: (highWatermark: ${leaderLog.highWatermark}, " +
+                  s"endOffset: ${leaderLog.logEndOffset}). " +
+                  s"Out of sync replicas: $outOfSyncReplicaLog.")
+                Some(prepareIsrShrink(currentState, outOfSyncReplicaIds))
+              }
             case _ =>
               None
           }
@@ -1262,6 +1289,10 @@ class Partition(val topicPartition: TopicPartition,
       // may increment the high watermark (and consequently complete delayed operations).
       alterIsrUpdateOpt.foreach(submitAlterPartition)
     }
+  }
+
+  private def shouldAttemptDemoteSelf(outOfSyncReplicaIds: Set[Int]): Boolean = {
+    (partitionState.isr -- outOfSyncReplicaIds).size == 1 && partitionState.isr.size > 1
   }
 
   private def needsShrinkIsr(): Boolean = {
@@ -1766,6 +1797,27 @@ class Partition(val topicPartition: TopicPartition,
     )
     val updatedState = PendingExpandIsr(
       newInSyncReplicaId,
+      newLeaderAndIsr,
+      currentState
+    )
+    partitionState = updatedState
+    updatedState
+  }
+
+  private[cluster] def prepareDemoteSelf(
+    currentState: CommittedPartitionState,
+    newLeaderId: Int
+  ): PendingDemoteSelf = {
+    val isrWithBrokerEpoch = addBrokerEpochToIsr(currentState.isr.toList)
+    val newLeaderAndIsr = LeaderAndIsr(
+      newLeaderId,
+      leaderEpoch,
+      partitionState.leaderRecoveryState,
+      isrWithBrokerEpoch,
+      partitionEpoch
+    )
+    val updatedState = PendingDemoteSelf(
+      newLeaderId,
       newLeaderAndIsr,
       currentState
     )
