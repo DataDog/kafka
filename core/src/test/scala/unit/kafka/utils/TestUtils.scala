@@ -1547,6 +1547,8 @@ object TestUtils extends Logging {
 
     override def markFailed(): Unit = failures.incrementAndGet()
 
+    override def markDemoteSelf(): Unit = {}
+
 
     def reset(): Unit = {
       expands.set(0)
