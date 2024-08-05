@@ -1292,6 +1292,7 @@ class Partition(val topicPartition: TopicPartition,
   }
 
   private def shouldAttemptDemoteSelf(outOfSyncReplicaIds: Set[Int]): Boolean = {
+    info(s"Checking if should attempt to demote self, outOfSyncReplicaIds $outOfSyncReplicaIds")
     (partitionState.isr -- outOfSyncReplicaIds).size == 1 && partitionState.isr.size > 1
   }
 
