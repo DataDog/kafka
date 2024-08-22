@@ -2389,6 +2389,7 @@ class KafkaController(val config: KafkaConfig,
     val partitionResponses = mutable.HashMap[TopicPartition, Either[Errors, LeaderAndIsr]]()
     // Determine which partitions we will accept the new ISR for
     val adjustedIsrs = partitionsToAlter.flatMap { case (tp, newLeaderAndIsr) =>
+      info(s"Working on partition $tp, newLeaderAndIsr $newLeaderAndIsr")
       controllerContext.partitionLeadershipInfo(tp) match {
         case Some(leaderIsrAndControllerEpoch) =>
           val currentLeaderAndIsr = leaderIsrAndControllerEpoch.leaderAndIsr
@@ -2453,18 +2454,18 @@ class KafkaController(val config: KafkaConfig,
     }
 
     // Do the updates in ZK
-    debug(s"Updating ISRs for partitions: ${adjustedIsrs.keySet}.")
+    info(s"Updating ISRs for partitions: ${adjustedIsrs.keySet}.")
     val UpdateLeaderAndIsrResult(finishedUpdates, badVersionUpdates) = zkClient.updateLeaderAndIsr(
       adjustedIsrs, controllerContext.epoch, controllerContext.epochZkVersion)
 
     val successfulUpdates = finishedUpdates.flatMap { case (partition, isrOrError) =>
       isrOrError match {
         case Right(updatedIsr) =>
-          debug(s"ISR for partition $partition updated to $updatedIsr.")
+          info(s"ISR for partition $partition updated to $updatedIsr.")
           partitionResponses(partition) = Right(updatedIsr)
           Some(partition -> updatedIsr)
         case Left(e) =>
-          error(s"Failed to update ISR for partition $partition", e)
+          info(s"Failed to update ISR for partition $partition", e)
           partitionResponses(partition) = Left(Errors.forException(e))
           None
       }
