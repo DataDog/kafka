@@ -2399,17 +2399,21 @@ class KafkaController(val config: KafkaConfig,
             // that this node is no longer the active controller. We return NOT_CONTROLLER in
             // this case to give the leader an opportunity to find the new controller.
             partitionResponses(tp) = Left(Errors.NOT_CONTROLLER)
+            info(s"Rejecting request for reason 1")
             None
           } else if (newLeaderAndIsr.leaderEpoch < currentLeaderAndIsr.leaderEpoch) {
             partitionResponses(tp) = Left(Errors.FENCED_LEADER_EPOCH)
+            info(s"Rejecting request for reason 2")
             None
           } else if (newLeaderAndIsr.equalsAllowStalePartitionEpoch(currentLeaderAndIsr)) {
             // If a partition is already in the desired state, just return it
             // this check must be done before fencing based on partition epoch to maintain idempotency
             partitionResponses(tp) = Right(currentLeaderAndIsr)
+            info(s"Rejecting request for reason 3")
             None
           } else if (newLeaderAndIsr.partitionEpoch < currentLeaderAndIsr.partitionEpoch) {
             partitionResponses(tp) = Left(Errors.INVALID_UPDATE_VERSION)
+            info(s"Rejecting request for reason 4")
             None
           }  else if (newLeaderAndIsr.leaderRecoveryState == LeaderRecoveryState.RECOVERING && newLeaderAndIsr.isr.length > 1) {
             partitionResponses(tp) = Left(Errors.INVALID_REQUEST)
@@ -2430,6 +2434,7 @@ class KafkaController(val config: KafkaConfig,
           } else {
             // Pull out replicas being added to ISR and verify they are all online.
             // If a replica is not online, reject the update as specified in KIP-841.
+            info("Got all the way to end")
             val ineligibleReplicas = newLeaderAndIsr.isr.toSet -- controllerContext.liveBrokerIds
             if (ineligibleReplicas.nonEmpty) {
               info(s"Rejecting AlterPartition request from node $brokerId for $tp because " +
@@ -2441,8 +2446,10 @@ class KafkaController(val config: KafkaConfig,
               } else {
                 partitionResponses(tp) = Left(Errors.OPERATION_NOT_ATTEMPTED)
               }
+              info("Rejecting request for reason 100000")
               None
             } else {
+              info("Accepting request")
               Some(tp -> newLeaderAndIsr)
             }
           }
