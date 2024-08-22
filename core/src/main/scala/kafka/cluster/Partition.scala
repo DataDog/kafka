@@ -1811,11 +1811,12 @@ class Partition(val topicPartition: TopicPartition,
     newLeaderId: Int
   ): PendingDemoteSelf = {
     val isrWithBrokerEpoch = addBrokerEpochToIsr(currentState.isr.toList)
+    val shuffledIsr = isrWithBrokerEpoch.slice(1, isrWithBrokerEpoch.size) ++ isrWithBrokerEpoch.slice(0, 1)
     val newLeaderAndIsr = LeaderAndIsr(
-      newLeaderId,
+      localBrokerId,
       leaderEpoch,
       partitionState.leaderRecoveryState,
-      isrWithBrokerEpoch,
+      shuffledIsr,
       partitionEpoch
     )
     val updatedState = PendingDemoteSelf(
