@@ -2320,6 +2320,7 @@ class KafkaController(val config: KafkaConfig,
     alterPartitionRequestVersion: Short,
     callback: AlterPartitionResponseData => Unit
   ): mutable.Map[TopicPartition, Either[Errors, LeaderAndIsr]] = {
+    info(s"Received AlterPartition request with payload $alterPartitionRequest")
     val useTopicsIds = alterPartitionRequestVersion > 1
 
     // Handle a few short-circuits
