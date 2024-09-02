@@ -1813,8 +1813,8 @@ class Partition(val topicPartition: TopicPartition,
     val isrWithBrokerEpoch = addBrokerEpochToIsr(currentState.isr.toList)
     val shuffledIsr = isrWithBrokerEpoch.slice(1, isrWithBrokerEpoch.size) ++ isrWithBrokerEpoch.slice(0, 1)
     val newLeaderAndIsr = LeaderAndIsr(
-      localBrokerId,
-      leaderEpoch,
+      newLeaderId,
+      leaderEpoch + 1,
       partitionState.leaderRecoveryState,
       shuffledIsr,
       partitionEpoch
