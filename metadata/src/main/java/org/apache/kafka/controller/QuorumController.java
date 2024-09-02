@@ -1923,6 +1923,8 @@ public final class QuorumController implements Controller {
         ControllerRequestContext context,
         AlterPartitionRequestData request
     ) {
+        log.info("Handling alterPartition request {}", request);
+        request.topics().forEach(topicData -> log.info("Includes topic data {}", topicData));
         if (request.topics().isEmpty()) {
             return CompletableFuture.completedFuture(new AlterPartitionResponseData());
         }

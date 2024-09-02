@@ -1246,7 +1246,6 @@ class Partition(val topicPartition: TopicPartition,
   private def tryCompleteDelayedRequests(): Unit = delayedOperations.checkAndCompleteAll()
 
   def maybeShrinkIsr(): Unit = {
-    info(s"Called maybeShrinkIsr for partition $partitionId")
     def needsIsrUpdate: Boolean = {
       !partitionState.isInflight && inReadLock(leaderIsrUpdateLock) {
         needsShrinkIsr()
