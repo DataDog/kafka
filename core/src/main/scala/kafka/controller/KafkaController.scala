@@ -141,6 +141,9 @@ class KafkaController(val config: KafkaConfig,
   private[controller] val eventManager = new ControllerEventManager(config.brokerId, this, time,
     controllerContext.stats.rateAndTimeMetrics)
 
+  private val lastIsrShrinkMsByPartition = mutable.Map[TopicPartition, Long]()
+  private val lastDemoteMsByPartition = mutable.Map[TopicPartition, Long]()
+
   private val brokerRequestBatch = new ControllerBrokerRequestBatch(config, controllerChannelManager,
     eventManager, controllerContext, stateChangeLogger)
   val replicaStateMachine: ReplicaStateMachine = new ZkReplicaStateMachine(config, stateChangeLogger, controllerContext, zkClient,
@@ -2441,7 +2444,21 @@ class KafkaController(val config: KafkaConfig,
               }
               None
             } else {
-              Some(tp -> newLeaderAndIsr)
+              val currentTime = time.milliseconds()
+              if (shouldDemoteLeader(tp, currentLeaderAndIsr.isr.size, newLeaderAndIsr.isr.size, currentTime)) {
+                val adjustedLeader = currentLeaderAndIsr.isr.filter(id => id != currentLeaderAndIsr.leader).head
+                warn(s"Suspect leader ${currentLeaderAndIsr.leader} for partition $tp is degraded, choosing $adjustedLeader as alternative leader")
+                val adjustedLeaderAndIsr = LeaderAndIsr(
+                  adjustedLeader,
+                  currentLeaderAndIsr.leaderEpoch + 1,
+                  currentLeaderAndIsr.isr,
+                  LeaderRecoveryState.of(LeaderRecoveryState.RECOVERED.value()),
+                  currentLeaderAndIsr.partitionEpoch)
+                Some(tp -> adjustedLeaderAndIsr)
+              } else {
+                lastIsrShrinkMsByPartition.put(tp, currentTime)
+                Some(tp -> newLeaderAndIsr)
+              }
             }
           }
 
@@ -2522,6 +2539,41 @@ class KafkaController(val config: KafkaConfig,
     callback(alterPartitionResponse)
 
     partitionResponses
+  }
+
+  // TODO: This is based on in-memory state only, need to handle controller failover
+  // Simple approach which is safe but not optimal: Initialize lastDemoteMsByPartition to be
+  // controller start-up time, so we never demote partition leader shortly after controller failover.
+  // Alternatively can use persisted state somewhere to seamlessly handle controller failover
+  private def shouldDemoteLeader(tp: TopicPartition, currentIsrSize: Int, proposedIsrSize: Int, currentTimeMs: Long): Boolean = {
+    // No demote: For now we only care about demotion when it's going to put is in a state that
+    // is difficult to recover from (ISR=[bad_leader]). In future this could be more robust (e.g.
+    // demote a degraded leader if it's merely degrading performance)
+    if (proposedIsrSize > 1) {
+      return false
+    }
+
+    // No demote: There was a recent demote, do not allow repeat demotions on the same partition,
+    // this is to avoid potential flapping
+    val lastDemoteMs = lastDemoteMsByPartition.getOrElse(tp, 0L)
+    if (currentTimeMs - lastDemoteMs < 5*60*1000) {
+      return false
+    }
+
+    if (currentIsrSize - proposedIsrSize > 1) {
+      // Record a shrink right now, this is needed to correctly handle the case when multiple
+      // followers are removed in the same AlterPartition request
+      lastIsrShrinkMsByPartition.put(tp, currentTimeMs)
+    }
+
+    // No demote: there have been no recent shrinks, so no reason to suspect leader is degraded
+    val lastShrinkMs = lastIsrShrinkMsByPartition.getOrElse(tp, 0L)
+    if (currentTimeMs - lastShrinkMs > 30*1000) {
+      return false
+    }
+
+    lastDemoteMsByPartition.put(tp, currentTimeMs)
+    true
   }
 
   def allocateProducerIds(allocateProducerIdsRequest: AllocateProducerIdsRequestData,
