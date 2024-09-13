@@ -211,7 +211,13 @@ public class TransactionIndex implements Closeable {
     }
 
     private FileChannel channelOrNull() {
-        return maybeChannel.orElse(null);
+        if (maybeChannel.isPresent()) {
+            FileChannel channel = maybeChannel.get();
+            if (channel.isOpen()) {
+                return channel;
+            }
+        }
+        return null;
     }
 
     private Iterable<AbortedTxnWithPosition> iterable() {
